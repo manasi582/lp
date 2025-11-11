@@ -1,0 +1,152 @@
+package oslab;
+
+import java.util.*;
+
+public class PageReplacement {
+
+    // FIFO Page Replacement
+    static void fifo(int[] pages, int n, int framesCount) {
+        Set<Integer> frames = new LinkedHashSet<>(framesCount);
+        int pageFaults = 0;
+        System.out.println("\nFIFO Page Replacement Simulation:");
+        for (int i = 0; i < n; i++) {
+            if (!frames.contains(pages[i])) {
+                if (frames.size() == framesCount) {
+                    int first = frames.iterator().next();
+                    frames.remove(first);
+                }
+                frames.add(pages[i]);
+                pageFaults++;
+            }
+            System.out.println("After page " + pages[i] + ": " + frames);
+        }
+        System.out.println("Total Page Faults (FIFO): " + pageFaults);
+    }
+
+    // LRU Page Replacement
+    static void lru(int[] pages, int n, int framesCount) {
+        ArrayList<Integer> frames = new ArrayList<>(framesCount);
+        int pageFaults = 0;
+        System.out.println("\nLRU Page Replacement Simulation:");
+        for (int i = 0; i < n; i++) {
+            if (!frames.contains(pages[i])) {
+                if (frames.size() == framesCount) {
+                    frames.remove(0);
+                }
+                pageFaults++;
+            } else {
+                frames.remove((Integer) pages[i]);
+            }
+            frames.add(pages[i]);
+            System.out.println("After page " + pages[i] + ": " + frames);
+        }
+        System.out.println("Total Page Faults (LRU): " + pageFaults);
+    }
+
+    // Optimal Page Replacement
+    static void optimal(int[] pages, int n, int framesCount) {
+        ArrayList<Integer> frames = new ArrayList<>(framesCount);
+        int pageFaults = 0;
+        System.out.println("\nOptimal Page Replacement Simulation:");
+        for (int i = 0; i < n; i++) {
+            if (!frames.contains(pages[i])) {
+                if (frames.size() < framesCount) {
+                    frames.add(pages[i]);
+                } else {
+                    int farthest = i + 1, indexToReplace = -1;
+                    for (int j = 0; j < frames.size(); j++) {
+                        int nextUse = Integer.MAX_VALUE;
+                        for (int k = i + 1; k < n; k++) {
+                            if (frames.get(j) == pages[k]) {
+                                nextUse = k;
+                                break;
+                            }
+                        }
+                        if (nextUse > farthest) {
+                            farthest = nextUse;
+                            indexToReplace = j;
+                        }
+                    }
+                    if (indexToReplace == -1) indexToReplace = 0;
+                    frames.set(indexToReplace, pages[i]);
+                }
+                pageFaults++;
+            }
+            System.out.println("After page " + pages[i] + ": " + frames);
+        }
+        System.out.println("Total Page Faults (Optimal): " + pageFaults);
+    }
+
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        int choice;
+        do {
+            System.out.println("\n===== PAGE REPLACEMENT MENU =====");
+            System.out.println("1. FIFO");
+            System.out.println("2. LRU");
+            System.out.println("3. Optimal");
+            System.out.println("4. Exit");
+            System.out.print("Enter your choice: ");
+            choice = sc.nextInt();
+
+            if (choice == 4) {
+                System.out.println("Exiting...");
+                break;
+            }
+
+            System.out.print("Enter number of frames: ");
+            int framesCount = sc.nextInt();
+
+            System.out.print("Enter length of reference string: ");
+            int n = sc.nextInt();
+
+            int[] pages = new int[n];
+            System.out.println("Enter the reference string: ");
+            for (int i = 0; i < n; i++) {
+                pages[i] = sc.nextInt();
+            }
+
+            switch (choice) {
+                case 1:
+                    fifo(pages, n, framesCount);
+                    break;
+                case 2:
+                    lru(pages, n, framesCount);
+                    break;
+                case 3:
+                    optimal(pages, n, framesCount);
+                    break;
+                default:
+                    System.out.println("Invalid choice.");
+            }
+
+        } while (choice != 4);
+        sc.close();
+    }
+}
+
+
+
+
+******INPUT********
+===== PAGE REPLACEMENT MENU =====
+1. FIFO
+2. LRU
+3. Optimal
+4. Exit
+Enter your choice: 1
+Enter number of frames: 3
+Enter length of reference string: 7
+Enter the reference string:
+7 0 1 2 0 3 0
+
+choice : 2
+3
+12
+7 0 1 2 0 3 0 4 2 3 0 3
+
+choice : 3
+3
+12
+7 0 1 2 0 3 0 4 2 3 0 3
+
