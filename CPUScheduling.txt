@@ -1,0 +1,225 @@
+package scheduling;
+
+import java.util.*;
+
+class Process {
+    int pid;           // Process ID
+    int burstTime;     // CPU burst time
+    int arrivalTime;   // Arrival time
+    int priority;      // Priority
+    int remainingTime; // For preemptive algorithms
+
+    public Process(int pid, int arrivalTime, int burstTime, int priority) {
+        this.pid = pid;
+        this.arrivalTime = arrivalTime;
+        this.burstTime = burstTime;
+        this.remainingTime = burstTime;
+        this.priority = priority;
+    }
+}
+
+public class CPUScheduler {
+    static Scanner sc = new Scanner(System.in);
+
+    public static void main(String[] args) {
+        List<Process> originalList = new ArrayList<>();
+
+        System.out.print("Enter number of processes: ");
+        int n = sc.nextInt();
+
+        for (int i = 0; i < n; i++) {
+            System.out.println("Enter Arrival Time, Burst Time and Priority for Process " + (i + 1));
+            int at = sc.nextInt();
+            int bt = sc.nextInt();
+            int pr = sc.nextInt();
+            originalList.add(new Process(i + 1, at, bt, pr));
+        }
+
+        int choice;
+        do {
+            System.out.println("\n====== CPU SCHEDULING MENU ======");
+            System.out.println("1. FCFS");
+            System.out.println("2. SJF (Preemptive)");
+            System.out.println("3. Priority (Non-Preemptive)");
+            System.out.println("4. Round Robin");
+            System.out.println("5. Exit");
+            System.out.print("Enter your choice: ");
+            choice = sc.nextInt();
+
+            // Make a deep copy of the process list each time (so remaining times reset)
+            List<Process> processes = new ArrayList<>();
+            for (Process p : originalList) {
+                processes.add(new Process(p.pid, p.arrivalTime, p.burstTime, p.priority));
+            }
+
+            switch (choice) {
+                case 1:
+                    fcfs(processes);
+                    break;
+                case 2:
+                    sjfPreemptive(processes);
+                    break;
+                case 3:
+                    priorityNonPreemptive(processes);
+                    break;
+                case 4:
+                    roundRobin(processes);
+                    break;
+                case 5:
+                    System.out.println("Exiting program... Goodbye!");
+                    break;
+                default:
+                    System.out.println("Invalid choice. Please try again!");
+            }
+
+        } while (choice != 5);
+    }
+
+    // ---------- 1. FCFS ----------
+    static void fcfs(List<Process> processes) {
+        processes.sort(Comparator.comparingInt(p -> p.arrivalTime));
+        int currentTime = 0, totalWT = 0, totalTAT = 0;
+
+        System.out.println("\nFCFS Scheduling:");
+        System.out.println("PID\tAT\tBT\tCT\tTAT\tWT");
+
+        for (Process p : processes) {
+            if (currentTime < p.arrivalTime)
+                currentTime = p.arrivalTime;
+            currentTime += p.burstTime;
+            int completionTime = currentTime;
+            int tat = completionTime - p.arrivalTime;
+            int wt = tat - p.burstTime;
+
+            totalWT += wt;
+            totalTAT += tat;
+
+            System.out.println(p.pid + "\t" + p.arrivalTime + "\t" + p.burstTime + "\t" + completionTime + "\t" + tat + "\t" + wt);
+        }
+
+        System.out.println("\nAverage TAT: " + (float) totalTAT / processes.size());
+        System.out.println("Average WT: " + (float) totalWT / processes.size());
+    }
+
+    // ---------- 2. SJF (Preemptive) ----------
+    static void sjfPreemptive(List<Process> processes) {
+        int completed = 0, currentTime = 0;
+        float totalWT = 0, totalTAT = 0;
+
+        while (completed < processes.size()) {
+            Process shortest = null;
+            int minTime = Integer.MAX_VALUE;
+
+            for (Process p : processes) {
+                if (p.arrivalTime <= currentTime && p.remainingTime > 0 && p.remainingTime < minTime) {
+                    minTime = p.remainingTime;
+                    shortest = p;
+                }
+            }
+
+            if (shortest == null) {
+                currentTime++;
+                continue;
+            }
+
+            shortest.remainingTime--;
+            currentTime++;
+
+            if (shortest.remainingTime == 0) {
+                completed++;
+                int finishTime = currentTime;
+                int tat = finishTime - shortest.arrivalTime;
+                int wt = tat - shortest.burstTime;
+
+                totalTAT += tat;
+                totalWT += wt;
+            }
+        }
+
+        System.out.println("\nSJF (Preemptive) Scheduling:");
+        System.out.println("Average TAT: " + (totalTAT / processes.size()));
+        System.out.println("Average WT: " + (totalWT / processes.size()));
+    }
+
+    // ---------- 3. Priority (Non-preemptive) ----------
+    static void priorityNonPreemptive(List<Process> processes) {
+        processes.sort(Comparator.comparingInt(p -> p.arrivalTime));
+        int currentTime = 0, completed = 0;
+        float totalWT = 0, totalTAT = 0;
+
+        while (completed < processes.size()) {
+            Process highest = null;
+            int bestPriority = Integer.MAX_VALUE;
+
+            for (Process p : processes) {
+                if (p.arrivalTime <= currentTime && p.remainingTime > 0 && p.priority < bestPriority) {
+                    bestPriority = p.priority;
+                    highest = p;
+                }
+            }
+
+            if (highest == null) {
+                currentTime++;
+                continue;
+            }
+
+            currentTime += highest.burstTime;
+            highest.remainingTime = 0;
+            completed++;
+
+            int tat = currentTime - highest.arrivalTime;
+            int wt = tat - highest.burstTime;
+
+            totalTAT += tat;
+            totalWT += wt;
+        }
+
+        System.out.println("\nPriority (Non-preemptive) Scheduling:");
+        System.out.println("Average TAT: " + (totalTAT / processes.size()));
+        System.out.println("Average WT: " + (totalWT / processes.size()));
+    }
+
+    // ---------- 4. Round Robin ----------
+    static void roundRobin(List<Process> processes) {
+        System.out.print("Enter Time Quantum: ");
+        int tq = sc.nextInt();
+        Queue<Process> queue = new LinkedList<>();
+        int currentTime = 0, completed = 0;
+        float totalWT = 0, totalTAT = 0;
+
+        processes.sort(Comparator.comparingInt(p -> p.arrivalTime));
+
+        queue.add(processes.get(0));
+        while (completed < processes.size()) {
+            if (queue.isEmpty()) {
+                currentTime++;
+                continue;
+            }
+
+            Process p = queue.poll();
+
+            int execTime = Math.min(tq, p.remainingTime);
+            p.remainingTime -= execTime;
+            currentTime += execTime;
+
+            for (Process proc : processes) {
+                if (proc.arrivalTime <= currentTime && proc.remainingTime > 0 && !queue.contains(proc) && proc != p)
+                    queue.add(proc);
+            }
+
+            if (p.remainingTime > 0)
+                queue.add(p);
+            else {
+                completed++;
+                int tat = currentTime - p.arrivalTime;
+                int wt = tat - p.burstTime;
+                totalTAT += tat;
+                totalWT += wt;
+            }
+        }
+
+        System.out.println("\nRound Robin Scheduling:");
+        System.out.println("Average TAT: " + (totalTAT / processes.size()));
+        System.out.println("Average WT: " + (totalWT / processes.size()));
+    }
+}
