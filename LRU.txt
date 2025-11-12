@@ -1,0 +1,66 @@
+projectname: LRU, package : lru, classname: LRU
+
+package lru;
+
+import java.util.*;
+
+public class LRU {
+
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+
+        System.out.print("Enter number of frames: ");
+        int frames = sc.nextInt();
+
+        System.out.print("Enter number of pages: ");
+        int pages = sc.nextInt();
+
+        int[] pageSequence = new int[pages];
+        System.out.println("Enter the page reference string:");
+        for (int i = 0; i < pages; i++) {
+            pageSequence[i] = sc.nextInt();
+        }
+
+        ArrayList<Integer> frameList = new ArrayList<>(frames);
+        int pageFaults = 0;
+
+        System.out.println("\nPage Reference\tFrames\t\tPage Fault");
+
+        for (int i = 0; i < pages; i++) {
+            int currentPage = pageSequence[i];
+
+            // Page hit (already in memory)
+            if (frameList.contains(currentPage)) {
+                // Move this page to the most recently used position
+                frameList.remove((Integer) currentPage);
+                frameList.add(currentPage);
+                System.out.print(currentPage + "\t\t");
+                printFrames(frameList, frames);
+                System.out.println("\t\tNo Fault");
+            } else {
+                // Page miss → Replace least recently used
+                if (frameList.size() == frames) {
+                    frameList.remove(0); // remove LRU
+                }
+                frameList.add(currentPage);
+                pageFaults++;
+
+                System.out.print(currentPage + "\t\t");
+                printFrames(frameList, frames);
+                System.out.println("\t\tPage Fault");
+            }
+        }
+
+        System.out.println("\nTotal Page Faults: " + pageFaults);
+        sc.close();
+    }
+
+    private static void printFrames(ArrayList<Integer> frameList, int frames) {
+        for (int j = 0; j < frames; j++) {
+            if (j < frameList.size())
+                System.out.print(frameList.get(j) + " ");
+            else
+                System.out.print("- ");
+        }
+    }
+}

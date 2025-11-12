@@ -1,0 +1,68 @@
+projectname: FIFO, package : fifo, classname: FIFO
+
+package fifo;
+
+import java.util.*;
+
+public class FIFO {
+
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+
+        System.out.print("Enter number of frames: ");
+        int frames = sc.nextInt();
+
+        System.out.print("Enter number of pages: ");
+        int pages = sc.nextInt();
+
+        int[] pageSequence = new int[pages];
+        System.out.println("Enter the page reference string:");
+        for (int i = 0; i < pages; i++) {
+            pageSequence[i] = sc.nextInt();
+        }
+
+        int[] frame = new int[frames];
+        Arrays.fill(frame, -1); // initialize frames as empty
+
+        int pageFaults = 0;
+        int nextToReplace = 0;
+
+        System.out.println("\nPage Reference\tFrames\t\tPage Fault");
+
+        for (int i = 0; i < pages; i++) {
+            int currentPage = pageSequence[i];
+            boolean pageFound = false;
+
+            // Check if page already exists in frame
+            for (int j = 0; j < frames; j++) {
+                if (frame[j] == currentPage) {
+                    pageFound = true;
+                    break;
+                }
+            }
+
+            // If page not found, replace using FIFO rule
+            if (!pageFound) {
+                frame[nextToReplace] = currentPage;
+                nextToReplace = (nextToReplace + 1) % frames;
+                pageFaults++;
+            }
+
+            // Display current state of frames
+            System.out.print(currentPage + "\t\t");
+            for (int j = 0; j < frames; j++) {
+                if (frame[j] != -1)
+                    System.out.print(frame[j] + " ");
+                else
+                    System.out.print("- ");
+            }
+            if (!pageFound)
+                System.out.println("\t\tPage Fault");
+            else
+                System.out.println("\t\tNo Fault");
+        }
+
+        System.out.println("\nTotal Page Faults: " + pageFaults);
+        sc.close();
+    }
+}
