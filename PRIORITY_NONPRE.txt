@@ -1,0 +1,85 @@
+project: PRIORITY_NONPRE
+class: PRIORITY_NONPRE
+package :priority_nonpre
+
+
+package priority_nonpre;
+
+import java.util.Scanner;
+
+public class PRIORITY_NONPRE {
+
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+
+        System.out.print("Enter number of processes: ");
+        int n = sc.nextInt();
+
+        int pid[] = new int[n];   // Process ID
+        int at[] = new int[n];    // Arrival Time
+        int bt[] = new int[n];    // Burst Time
+        int pr[] = new int[n];    // Priority
+        int ct[] = new int[n];    // Completion Time
+        int tat[] = new int[n];   // Turnaround Time
+        int wt[] = new int[n];    // Waiting Time
+        int f[] = new int[n];     // Finished flag
+
+        int st = 0, total = 0;
+        float avgwt = 0, avgtat = 0;
+
+        // Input details
+        for (int i = 0; i < n; i++) {
+            System.out.println("\nEnter details for Process " + (i + 1));
+            pid[i] = i + 1;
+            System.out.print("Arrival Time: ");
+            at[i] = sc.nextInt();
+            System.out.print("Burst Time: ");
+            bt[i] = sc.nextInt();
+            System.out.print("Priority (lower number = higher priority): ");
+            pr[i] = sc.nextInt();
+            f[i] = 0;
+        }
+
+        // Scheduling
+        while (true) {
+            int c = n, min = 9999;
+            if (total == n)
+                break;
+
+            for (int i = 0; i < n; i++) {
+                if ((at[i] <= st) && (f[i] == 0) && (pr[i] < min)) {
+                    min = pr[i];
+                    c = i;
+                }
+            }
+
+            if (c == n) {
+                st++;
+            } else {
+                st += bt[c];
+                ct[c] = st;
+                tat[c] = ct[c] - at[c];
+                wt[c] = tat[c] - bt[c];
+                f[c] = 1;
+                total++;
+            }
+        }
+
+        // Display table
+        System.out.println("\n------------------------------------------------------------");
+        System.out.println("PID\tAT\tBT\tPR\tCT\tTAT\tWT");
+        System.out.println("------------------------------------------------------------");
+
+        for (int i = 0; i < n; i++) {
+            avgtat += tat[i];
+            avgwt += wt[i];
+            System.out.println(pid[i] + "\t" + at[i] + "\t" + bt[i] + "\t" + pr[i] + "\t" + ct[i] + "\t" + tat[i] + "\t" + wt[i]);
+        }
+
+        System.out.println("------------------------------------------------------------");
+        System.out.printf("Average Turnaround Time: %.2f\n", (avgtat / n));
+        System.out.printf("Average Waiting Time: %.2f\n", (avgwt / n));
+
+        sc.close();
+    }
+}
