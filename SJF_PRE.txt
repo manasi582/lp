@@ -1,0 +1,78 @@
+project name : SJF_PRE, package name: sjf_pre, class name: SJF_PRE
+
+package sjf_pre;
+
+import java.util.Scanner;
+
+public class SJF_PRE {
+
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+
+        System.out.print("Enter number of processes: ");
+        int n = sc.nextInt();
+
+        int pid[] = new int[n];
+        int at[] = new int[n];   // Arrival Time
+        int bt[] = new int[n];   // Burst Time
+        int ct[] = new int[n];   // Completion Time
+        int ta[] = new int[n];   // Turnaround Time
+        int wt[] = new int[n];   // Waiting Time
+        int f[] = new int[n];    // Flag to check completion
+        int k[] = new int[n];    // Copy of burst time
+
+        int tot = 0;
+        float avgwt = 0, avgta = 0;
+
+        for (int i = 0; i < n; i++) {
+            System.out.println("\nEnter details for process " + (i + 1));
+            pid[i] = i + 1;
+            System.out.print("Arrival Time: ");
+            at[i] = sc.nextInt();
+            System.out.print("Burst Time: ");
+            bt[i] = sc.nextInt();
+            k[i] = bt[i];
+            f[i] = 0;
+        }
+
+        int st = 0, totComp = 0;
+        while (true) {
+            int min = 9999, c = n;
+            if (totComp == n)
+                break;
+
+            for (int i = 0; i < n; i++) {
+                if ((at[i] <= st) && (f[i] == 0) && (bt[i] < min)) {
+                    min = bt[i];
+                    c = i;
+                }
+            }
+
+            if (c == n) {
+                st++;
+            } else {
+                bt[c]--;
+                st++;
+                if (bt[c] == 0) {
+                    ct[c] = st;
+                    f[c] = 1;
+                    totComp++;
+                }
+            }
+        }
+
+        System.out.println("\nPID\tAT\tBT\tCT\tTAT\tWT");
+        for (int i = 0; i < n; i++) {
+            ta[i] = ct[i] - at[i];
+            wt[i] = ta[i] - k[i];
+            avgwt += wt[i];
+            avgta += ta[i];
+            System.out.println(pid[i] + "\t" + at[i] + "\t" + k[i] + "\t" + ct[i] + "\t" + ta[i] + "\t" + wt[i]);
+        }
+
+        System.out.printf("\nAverage Turnaround Time: %.2f", (avgta / n));
+        System.out.printf("\nAverage Waiting Time: %.2f\n", (avgwt / n));
+
+        sc.close();
+    }
+}
