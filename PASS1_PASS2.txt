@@ -1,0 +1,317 @@
+How to set this up in Eclipse (step-by-step)
+
+Create a Java Project
+
+File → New → Java Project → name it MacroProcessor
+
+Click Finish.
+
+Create a package
+
+Right-click src → New → Package → name: macroprocessor → Finish.
+
+Create two Java classes
+
+Right-click package macroprocessor → New → Class → name PassOne → check public static void main → Finish.
+
+Repeat to create PassTwo.
+
+Create an input file
+
+In the project root (outside src), create a file named source.asm (you can create it under the project: Right-click project → New → File → source.asm). Paste sample or your own source that uses MACRO / MEND and macro calls.
+
+Paste the code below into PassOne.java and PassTwo.java respectively.
+
+Run PassOne (Run → Run As → Java Application). It will read source.asm from the project root, create MNT.txt, MDT.txt, and intermediate.txt.
+
+Run PassTwo. It will read MNT.txt, MDT.txt, intermediate.txt and produce expanded.txt (the final expanded code). Open expanded.txt in Eclipse to verify.
+
+
+source.asm:
+; sample source with macros
+MACRO
+INCR &ARG1
+LOAD &ARG1
+ADD =1
+STORE &ARG1
+MEND
+
+START 100
+INCR A
+INCR B
+STOP
+
+PassOne.java
+package macroprocessor;
+
+import java.io.*;
+import java.util.*;
+
+/*
+ PassOne: Read source.asm, build MNT and MDT, write intermediate.txt
+ Simple macro syntax assumed:
+ - Macro definition begins with a line "MACRO"
+ - Next line is macro header: <MACRONAME> [&param1,&param2,...]
+ - Macro body lines follow until line "MEND"
+ - Macro calls are written in intermediate.txt as-is (e.g., "INCR A")
+ - Comments / blank lines are copied to intermediate output.
+ Parameter notation in definition: &ARG1 etc.
+ We convert them to positional placeholders #1, #2...
+*/
+
+public class PassOne {
+    static class MNTEntry {
+        String name;
+        int mdtIndex; // start index in MDT (1-based)
+        int paramCount;
+        MNTEntry(String name, int mdtIndex, int paramCount) {
+            this.name = name; this.mdtIndex = mdtIndex; this.paramCount = paramCount;
+        }
+    }
+
+    public static void main(String[] args) {
+        String projectRoot = System.getProperty("user.dir"); // project root
+        File source = new File(projectRoot, "source.asm");
+        File mntFile = new File(projectRoot, "MNT.txt");
+        File mdtFile = new File(projectRoot, "MDT.txt");
+        File intermediateFile = new File(projectRoot, "intermediate.txt");
+
+        List<MNTEntry> mnt = new ArrayList<>();
+        List<String> mdt = new ArrayList<>();
+
+        try (BufferedReader br = new BufferedReader(new FileReader(source));
+             PrintWriter interPW = new PrintWriter(new FileWriter(intermediateFile))) {
+
+            String line;
+            boolean inMacroDef = false;
+            String macroName = null;
+            List<String> formalParams = null;
+
+            while ((line = br.readLine()) != null) {
+                String trimmed = line.trim();
+                if (trimmed.equalsIgnoreCase("MACRO")) {
+                    // start macro definition
+                    inMacroDef = true;
+                    // next line should be header
+                    String header = br.readLine();
+                    if (header == null) {
+                        System.err.println("Unexpected EOF after MACRO");
+                        break;
+                    }
+                    header = header.trim();
+                    // parse header: name and parameters (e.g., INCR &ARG1,&ARG2)
+                    String[] parts = header.split("\\s+");
+                    macroName = parts[0];
+                    formalParams = new ArrayList<>();
+                    if (parts.length > 1) {
+                        String paramsPart = header.substring(header.indexOf(parts[1]));
+                        // params may be comma separated
+                        String[] params = paramsPart.split(",");
+                        for (String p : params) {
+                            formalParams.add(p.trim()); // e.g., &ARG1
+                        }
+                    }
+                    // add to MNT: mdt index is next index (1-based for human readability)
+                    int mdtIndex = mdt.size() + 1;
+                    mnt.add(new MNTEntry(macroName, mdtIndex, formalParams.size()));
+                    // store header in MDT too (optional) as comment
+                    mdt.add("DEFP " + macroName + " " + formalParams.size());
+                    // now read body until MEND
+                    while ((line = br.readLine()) != null) {
+                        String bodyLine = line;
+                        if (bodyLine.trim().equalsIgnoreCase("MEND")) {
+                            mdt.add("MEND");
+                            inMacroDef = false;
+                            macroName = null;
+                            formalParams = null;
+                            break;
+                        } else {
+                            // replace formal parameters (&X) with placeholders #1, #2...
+                            String processed = bodyLine;
+                            if (formalParams != null && !formalParams.isEmpty()) {
+                                for (int i = 0; i < formalParams.size(); i++) {
+                                    String formal = formalParams.get(i);
+                                    String placeholder = "#" + (i + 1);
+                                    // replace all occurrences of formal (like &ARG1) with placeholder
+                                    processed = processed.replace(formal, placeholder);
+                                }
+                            }
+                            mdt.add(processed);
+                        }
+                    }
+                } else {
+                    // Not inside macro definition - write to intermediate file
+                    interPW.println(line);
+                }
+            } // end while reading source
+
+            // write MNT and MDT to files
+            try (PrintWriter mntPW = new PrintWriter(new FileWriter(mntFile));
+                 PrintWriter mdtPW = new PrintWriter(new FileWriter(mdtFile))) {
+
+                mntPW.println("Name,MDTIndex,ParamCount");
+                for (MNTEntry e : mnt) {
+                    mntPW.printf("%s,%d,%d%n", e.name, e.mdtIndex, e.paramCount);
+                }
+
+                // MDT with indices
+                int idx = 1;
+                for (String s : mdt) {
+                    mdtPW.printf("%d : %s%n", idx++, s);
+                }
+            }
+
+            System.out.println("Pass-I completed.");
+            System.out.println("Generated files: MNT.txt, MDT.txt, intermediate.txt");
+        } catch (FileNotFoundException fnfe) {
+            System.err.println("source.asm not found in project root: " + fnfe.getMessage());
+        } catch (IOException ioe) {
+            ioe.printStackTrace();
+        }
+    }
+}
+
+
+PassTwo.java
+package macroprocessor;
+
+import java.io.*;
+import java.util.*;
+
+/*
+ PassTwo: Read MNT.txt, MDT.txt, intermediate.txt, produce expanded.txt
+ This implementation expects the MDT format produced by PassOne:
+ - Lines in MDT: "index : content"
+ - DEFP entries mark macro definitions: "DEFP MACRONAME paramCount"
+ - Macro body lines follow, then "MEND"
+ Intermediate file: normal source lines; macro CALL lines appear as "MACRONAME arg1,arg2,..."
+ This PassTwo will expand any line whose first token matches a macro name in MNT.
+*/
+
+public class PassTwo {
+
+    static class MNTEntry {
+        String name;
+        int mdtIndex;
+        int paramCount;
+        MNTEntry(String n, int idx, int p) { name = n; mdtIndex = idx; paramCount = p; }
+    }
+
+    public static void main(String[] args) {
+        String projectRoot = System.getProperty("user.dir");
+        File mntFile = new File(projectRoot, "MNT.txt");
+        File mdtFile = new File(projectRoot, "MDT.txt");
+        File intermediateFile = new File(projectRoot, "intermediate.txt");
+        File expandedFile = new File(projectRoot, "expanded.txt");
+
+        // Read MNT
+        Map<String, MNTEntry> mntMap = new HashMap<>();
+        try (BufferedReader br = new BufferedReader(new FileReader(mntFile))) {
+            String line = br.readLine(); // header
+            while ((line = br.readLine()) != null) {
+                String[] parts = line.split(",");
+                if (parts.length >= 3) {
+                    String name = parts[0].trim();
+                    int idx = Integer.parseInt(parts[1].trim());
+                    int pc = Integer.parseInt(parts[2].trim());
+                    mntMap.put(name, new MNTEntry(name, idx, pc));
+                }
+            }
+        } catch (FileNotFoundException fnf) {
+            System.err.println("MNT.txt not found. Run PassOne first.");
+            return;
+        } catch (IOException ioe) {
+            ioe.printStackTrace();
+        }
+
+        // Read MDT into an indexed Map (1-based index)
+        Map<Integer, String> mdtMap = new HashMap<>();
+        try (BufferedReader br = new BufferedReader(new FileReader(mdtFile))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                line = line.trim();
+                if (line.isEmpty()) continue;
+                // format: "index : content"
+                int colon = line.indexOf(':');
+                if (colon > 0) {
+                    String idxStr = line.substring(0, colon).trim();
+                    String content = line.substring(colon + 1).trim();
+                    try {
+                        int idx = Integer.parseInt(idxStr);
+                        mdtMap.put(idx, content);
+                    } catch (NumberFormatException nfe) {
+                        // ignore
+                    }
+                }
+            }
+        } catch (FileNotFoundException fnf) {
+            System.err.println("MDT.txt not found. Run PassOne first.");
+            return;
+        } catch (IOException ioe) {
+            ioe.printStackTrace();
+        }
+
+        // Process intermediate file and expand macros
+        try (BufferedReader br = new BufferedReader(new FileReader(intermediateFile));
+             PrintWriter out = new PrintWriter(new FileWriter(expandedFile))) {
+
+            String line;
+            while ((line = br.readLine()) != null) {
+                String trimmed = line.trim();
+                if (trimmed.isEmpty()) {
+                    out.println(line);
+                    continue;
+                }
+                // tokenise first word
+                String[] tokens = trimmed.split("\\s+", 2);
+                String first = tokens[0];
+                // if first token is a macro name, expand
+                if (mntMap.containsKey(first)) {
+                    MNTEntry entry = mntMap.get(first);
+                    String argsPart = "";
+                    if (tokens.length > 1) argsPart = tokens[1].trim();
+                    // build ALA mapping #1->arg1 etc.
+                    String[] actuals;
+                    if (argsPart.isEmpty()) actuals = new String[0];
+                    else {
+                        // split by comma, but allow spaces
+                        actuals = Arrays.stream(argsPart.split(","))
+                                        .map(String::trim)
+                                        .toArray(String[]::new);
+                    }
+                    // Expand by walking MDT from entry.mdtIndex until MEND
+                    int idx = entry.mdtIndex;
+                    while (true) {
+                        String mdtLine = mdtMap.get(idx);
+                        if (mdtLine == null) break;
+                        if (mdtLine.equalsIgnoreCase("MEND")) {
+                            break;
+                        }
+                        if (mdtLine.startsWith("DEFP")) {
+                            // header entry; ignore
+                        } else {
+                            String expandedLine = mdtLine;
+                            // replace placeholders #i
+                            for (int p = 0; p < entry.paramCount; p++) {
+                                String placeholder = "#" + (p + 1);
+                                String replacement = (p < actuals.length) ? actuals[p] : "";
+                                expandedLine = expandedLine.replace(placeholder, replacement);
+                            }
+                            out.println(expandedLine);
+                        }
+                        idx++;
+                    }
+                } else {
+                    // not a macro call — copy as-is
+                    out.println(line);
+                }
+            }
+
+            System.out.println("Pass-II completed. Output written to expanded.txt");
+        } catch (FileNotFoundException fnf) {
+            System.err.println("intermediate.txt not found. Run PassOne first.");
+        } catch (IOException ioe) {
+            ioe.printStackTrace();
+        }
+    }
+}
